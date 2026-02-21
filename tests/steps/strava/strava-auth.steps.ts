@@ -43,3 +43,35 @@ Then('the athlete profile should contain required fields', async () => {
   expect(responseBody.id).toBeGreaterThan(0);
   expect(responseBody.resource_state).toBeGreaterThan(0);
 });
+
+let invalidToken: string = '';
+let useAuthHeader: boolean = true;
+
+Given('I have an invalid access token {string}', async ({}, token: string) => {
+  invalidToken = token;
+  accessToken = invalidToken;
+});
+
+When('I send a GET request to {string} without authorization header', async ({ request, $testInfo }, endpoint: string) => {
+  const fullUrl = `${baseUrl}${endpoint}`;
+  await logApiRequest($testInfo, 'GET', fullUrl, {});
+  console.log(`→ Sending GET ${fullUrl} WITHOUT authorization`);
+  response = await request.get(fullUrl);
+  try {
+    responseBody = await response.json();
+  } catch (e) {
+    responseBody = await response.text();
+  }
+  await logApiResponse($testInfo, response, responseBody);
+});
+
+Then('the response should contain error message', async ({ $testInfo }) => {
+  const hasError = 
+    (typeof responseBody === 'object' && (responseBody.message || responseBody.error || responseBody.errors)) ||
+    (typeof responseBody === 'string' && responseBody.toLowerCase().includes('unauthorized'));
+  expect(hasError).toBeTruthy();
+  await $testInfo.attach('Error Message Validation', {
+    body: `Error found in response: ${JSON.stringify(responseBody)}`,
+    contentType: 'text/plain'
+  });
+});
