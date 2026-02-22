@@ -14,7 +14,7 @@ export async function logApiRequest(
     body: body || null
   };
 
-  await testInfo.attach('📤 Request', {
+  await testInfo.attach('Request', {
     body: JSON.stringify(requestDetails, null, 2),
     contentType: 'application/json'
   });
@@ -32,7 +32,7 @@ export async function logApiResponse(
     body: responseBody
   };
 
-  await testInfo.attach('📥 Response', {
+  await testInfo.attach('Response', {
     body: JSON.stringify(responseDetails, null, 2),
     contentType: 'application/json'
   });

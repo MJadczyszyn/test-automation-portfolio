@@ -1,77 +1,89 @@
 import { Given, When, Then } from '../../support/bdd-world';
 import { expect } from '@playwright/test';
-import * as dotenv from 'dotenv';
 import { logApiRequest, logApiResponse } from '../../support/api-helper';
+import { StravaClient } from '../../support/strava-client';
 
-dotenv.config();
+export const sharedState = {
+  accessToken: '',
+  baseUrl: '',
+  response: null as any,
+  responseBody: null as any
+};
 
-let accessToken: string;
-let baseUrl: string;
-let response: any;
-let responseBody: any;
+let invalidToken: string = '';
 
 Given('I have a valid Strava access token from environment variables', async () => {
-  accessToken = process.env.STRAVA_ACCESS_TOKEN || '';
-  expect(accessToken).toBeTruthy();
+  sharedState.accessToken = await StravaClient.getValidAccessToken();
+  expect(sharedState.accessToken).toBeTruthy();
+});
+
+Given('I have a valid Strava access token with activity read permission', async () => {
+  sharedState.accessToken = await StravaClient.getValidAccessToken({
+    requireActivityReadPermission: true
+  });
+  expect(sharedState.accessToken).toBeTruthy();
 });
 
 Given('the Strava API base URL is {string}', async ({}, url: string) => {
-  baseUrl = url;
+  sharedState.baseUrl = url;
 });
-
-When('I send a GET request to {string} with authorization header', async ({ request, $testInfo }, endpoint: string) => {
-  const fullUrl = `${baseUrl}${endpoint}`;
-  const headers = { 'Authorization': `Bearer ${accessToken}` };
-
-  await logApiRequest($testInfo, 'GET', fullUrl, { 'Authorization': 'Bearer ***' });
-  response = await request.get(fullUrl, { headers });
-  responseBody = await response.json();
-
-  await logApiResponse($testInfo, response, responseBody);
-});
-
-Then('the response status code should be {int}', async ({}, expectedStatus: number) => {
-  expect(response.status()).toBe(expectedStatus);
-});
-
-Then('the athlete profile should contain required fields', async () => {
-  expect(responseBody).toHaveProperty('id');
-  expect(responseBody).toHaveProperty('firstname');
-  expect(responseBody).toHaveProperty('lastname');
-  expect(responseBody).toHaveProperty('resource_state');
-  expect(typeof responseBody.id).toBe('number');
-  expect(responseBody.id).toBeGreaterThan(0);
-  expect(responseBody.resource_state).toBeGreaterThan(0);
-});
-
-let invalidToken: string = '';
-let useAuthHeader: boolean = true;
 
 Given('I have an invalid access token {string}', async ({}, token: string) => {
   invalidToken = token;
-  accessToken = invalidToken;
+  sharedState.accessToken = invalidToken;
+});
+
+When('I send a GET request to {string} with authorization header', async ({ request, $testInfo }, endpoint: string) => {
+  const fullUrl = `${sharedState.baseUrl}${endpoint}`;
+  const headers = { 'Authorization': `Bearer ${sharedState.accessToken}` };
+
+  await logApiRequest($testInfo, 'GET', fullUrl, { 'Authorization': 'Bearer ***' });
+  sharedState.response = await request.get(fullUrl, { headers });
+  sharedState.responseBody = await sharedState.response.json();
+  await logApiResponse($testInfo, sharedState.response, sharedState.responseBody);
 });
 
 When('I send a GET request to {string} without authorization header', async ({ request, $testInfo }, endpoint: string) => {
-  const fullUrl = `${baseUrl}${endpoint}`;
+  const fullUrl = `${sharedState.baseUrl}${endpoint}`;
   await logApiRequest($testInfo, 'GET', fullUrl, {});
-  console.log(`→ Sending GET ${fullUrl} WITHOUT authorization`);
-  response = await request.get(fullUrl);
+  sharedState.response = await request.get(fullUrl);
   try {
-    responseBody = await response.json();
+    sharedState.responseBody = await sharedState.response.json();
   } catch (e) {
-    responseBody = await response.text();
+    sharedState.responseBody = await sharedState.response.text();
   }
-  await logApiResponse($testInfo, response, responseBody);
+  await logApiResponse($testInfo, sharedState.response, sharedState.responseBody);
+});
+
+Then('the response status code should be {int}', async ({}, expectedStatus: number) => {
+  const actualStatus = sharedState.response.status();
+  const errorDetails = typeof sharedState.responseBody === 'string'
+    ? sharedState.responseBody
+    : JSON.stringify(sharedState.responseBody);
+
+  expect(
+    actualStatus,
+    `Expected status ${expectedStatus} but received ${actualStatus}. Response body: ${errorDetails}`
+  ).toBe(expectedStatus);
 });
 
 Then('the response should contain error message', async ({ $testInfo }) => {
   const hasError = 
-    (typeof responseBody === 'object' && (responseBody.message || responseBody.error || responseBody.errors)) ||
-    (typeof responseBody === 'string' && responseBody.toLowerCase().includes('unauthorized'));
+    (typeof sharedState.responseBody === 'object' && (sharedState.responseBody.message || sharedState.responseBody.error || sharedState.responseBody.errors)) ||
+    (typeof sharedState.responseBody === 'string' && sharedState.responseBody.toLowerCase().includes('unauthorized'));
   expect(hasError).toBeTruthy();
   await $testInfo.attach('Error Message Validation', {
-    body: `Error found in response: ${JSON.stringify(responseBody)}`,
+    body: `Error found in response: ${JSON.stringify(sharedState.responseBody)}`,
     contentType: 'text/plain'
   });
+});
+
+Then('the athlete profile should contain required fields', async () => {
+  expect(sharedState.responseBody).toHaveProperty('id');
+  expect(sharedState.responseBody).toHaveProperty('firstname');
+  expect(sharedState.responseBody).toHaveProperty('lastname');
+  expect(sharedState.responseBody).toHaveProperty('resource_state');
+  expect(typeof sharedState.responseBody.id).toBe('number');
+  expect(sharedState.responseBody.id).toBeGreaterThan(0);
+  expect(sharedState.responseBody.resource_state).toBeGreaterThan(0);
 });
