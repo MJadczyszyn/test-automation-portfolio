@@ -7,7 +7,8 @@ export const sharedState = {
   accessToken: '',
   baseUrl: '',
   response: null as any,
-  responseBody: null as any
+  responseBody: null as any,
+  apiKey: ''
 };
 
 let invalidToken: string = '';
