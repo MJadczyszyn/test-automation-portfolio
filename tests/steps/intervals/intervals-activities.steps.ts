@@ -19,9 +19,12 @@ When('I send a GET request to {string} with pagination', async ({ request, $test
 });
 
 Then('the response should contain array of activities', async ({ $testInfo }) => {
-  expect(Array.isArray(sharedState.responseBody)).toBeTruthy();
+  const activities = sharedState.responseBody.sportSettings;
+  expect(activities).toBeDefined();
+  expect(Array.isArray(activities)).toBeTruthy();
+  expect(activities.length).toBeGreaterThan(0);
   await $testInfo.attach('Activities Count', {
-    body: `Found ${sharedState.responseBody.length} activities`,
+    body: `Found ${activities.length} activities`,
     contentType: 'text/plain'
   });
 });

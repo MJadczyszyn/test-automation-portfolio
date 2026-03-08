@@ -8,7 +8,7 @@ Background:
 
 @smoke @activities
 Scenario: Get list of recent activities
-  When I send a GET request to "/athlete/{athleteId}/activities" with pagination
+  When I send a GET request to "/athlete/{athleteId}" with pagination
   Then the response should contain array of activities
   And each activity should have required fields
 
